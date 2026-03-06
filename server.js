@@ -22,7 +22,7 @@ const saleRoutes = require('./routes/saleRoutes');
 const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const shipmentRoutes = require('./routes/shipmentRoutes');
-const chatRoutes = require('./routes/chatRoutes'); // ADD THIS LINE
+const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -44,6 +44,7 @@ const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:8080',
     'https://cxpinventorybackend.onrender.com',
+    'https://cxpinventorysystem.vercel.app',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -54,6 +55,11 @@ app.use(cors({
         
         // Allow all render.com subdomains
         if (origin.includes('onrender.com')) {
+            return callback(null, true);
+        }
+        
+        // Allow all vercel.app subdomains
+        if (origin.includes('vercel.app')) {
             return callback(null, true);
         }
         
@@ -91,7 +97,7 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/shipments', shipmentRoutes);
-app.use('/api/chat', chatRoutes); // ADD THIS LINE
+app.use('/api/chat', chatRoutes);
 
 // Error handler middleware
 app.use(errorHandler);
@@ -162,7 +168,7 @@ const server = app.listen(PORT, () => {
     console.log(`  - /api/users`);
     console.log(`  - /api/dashboard`);
     console.log(`  - /api/shipments`);
-    console.log(`  - /api/chat ✅`); // Added checkmark to confirm
+    console.log(`  - /api/chat ✅`);
 });
 
 // Handle unhandled promise rejections
