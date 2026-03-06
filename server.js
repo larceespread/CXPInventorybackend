@@ -26,19 +26,20 @@ const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
-// Body parser
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parser - increase limit for file uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Sanitize data
 app.use(mongoSanitize());
 
-// Set security headers
+// Set security headers - Updated for production
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Disable CSP for development/testing
 }));
 
-// Enable CORS - Updated for production
+// Comprehensive CORS configuration
 const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173',
@@ -48,6 +49,31 @@ const allowedOrigins = [
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
+// CORS middleware with detailed configuration
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    
+    // Set CORS headers
+    if (allowedOrigins.includes(origin) || 
+        origin?.includes('onrender.com') || 
+        origin?.includes('vercel.app') ||
+        !origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range');
+    }
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
+    next();
+});
+
+// Enable CORS with options (alternative method)
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -63,28 +89,34 @@ app.use(cors({
             return callback(null, true);
         }
         
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-            return callback(new Error(msg), false);
+        // Check against allowed origins
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            return callback(null, true);
         }
+        
+        // In production, log blocked origins for debugging
+        if (process.env.NODE_ENV === 'production') {
+            console.log(`Blocked origin: ${origin}`);
+            return callback(null, false);
+        }
+        
+        // Allow all in development
         return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
 
-// Handle preflight requests
-app.options('*', cors());
-
-// Rate limiting
+// Rate limiting - adjust for production
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per windowMs
+    max: process.env.NODE_ENV === 'production' ? 2000 : 10000, // Higher limit in production
     message: 'Too many requests from this IP, please try again after 15 minutes',
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    skip: (req) => req.path === '/health' // Skip rate limiting for health checks
 });
 app.use('/api', limiter);
 
@@ -102,14 +134,17 @@ app.use('/api/chat', chatRoutes);
 // Error handler middleware
 app.use(errorHandler);
 
-// Health check endpoint - Updated with all endpoints
+// Health check endpoint - Detailed
 app.get('/health', (req, res) => {
     res.status(200).json({
         success: true,
         message: 'CXP Inventory API is running',
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
-        allowedOrigins: allowedOrigins,
+        cors: {
+            allowedOrigins: allowedOrigins,
+            currentOrigin: req.headers.origin || 'No origin'
+        },
         endpoints: {
             auth: '/api/auth',
             products: '/api/products',
@@ -135,7 +170,17 @@ app.get('/', (req, res) => {
     });
 });
 
-// 404 handler - Updated with available endpoints
+// Test endpoint for CORS
+app.get('/test-cors', (req, res) => {
+    res.json({
+        message: 'CORS is working properly',
+        origin: req.headers.origin || 'No origin',
+        method: req.method,
+        headers: req.headers
+    });
+});
+
+// 404 handler
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
@@ -156,8 +201,9 @@ app.use('*', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => { // Listen on all network interfaces
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    console.log(`Server accessible at: http://localhost:${PORT} and http://YOUR_IP:${PORT}`);
     console.log(`Allowed CORS origins: ${allowedOrigins.join(', ')}`);
     console.log(`All routes mounted:`);
     console.log(`  - /api/auth`);
