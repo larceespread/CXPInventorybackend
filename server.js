@@ -22,6 +22,7 @@ const saleRoutes = require('./routes/saleRoutes');
 const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const shipmentRoutes = require('./routes/shipmentRoutes');
+const chatRoutes = require('./routes/chatRoutes'); // ADD THIS LINE
 
 const app = express();
 
@@ -37,17 +38,24 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Enable CORS - FIXED: Allow both frontend ports
+// Enable CORS - Updated for production
 const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:8080',
+    'https://cxpinventorybackend.onrender.com',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
 app.use(cors({
     origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
+        
+        // Allow all render.com subdomains
+        if (origin.includes('onrender.com')) {
+            return callback(null, true);
+        }
         
         if (allowedOrigins.indexOf(origin) === -1) {
             const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
@@ -66,8 +74,8 @@ app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 1000,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Limit each IP to 1000 requests per windowMs
     message: 'Too many requests from this IP, please try again after 15 minutes',
     standardHeaders: true,
     legacyHeaders: false
@@ -83,28 +91,60 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/shipments', shipmentRoutes);
+app.use('/api/chat', chatRoutes); // ADD THIS LINE
 
 // Error handler middleware
 app.use(errorHandler);
 
-// Health check endpoint
+// Health check endpoint - Updated with all endpoints
 app.get('/health', (req, res) => {
     res.status(200).json({
         success: true,
-        message: 'Server is running',
+        message: 'CXP Inventory API is running',
         timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
         allowedOrigins: allowedOrigins,
         endpoints: {
-            shipments: '/api/shipments'
+            auth: '/api/auth',
+            products: '/api/products',
+            categories: '/api/categories',
+            brands: '/api/brands',
+            sales: '/api/sales',
+            users: '/api/users',
+            dashboard: '/api/dashboard',
+            shipments: '/api/shipments',
+            chat: '/api/chat'
         }
     });
 });
 
-// 404 handler
+// Root endpoint
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'CXP Inventory API',
+        version: '1.0.0',
+        documentation: '/health',
+        chat: '/api/chat - POST messages to chat'
+    });
+});
+
+// 404 handler - Updated with available endpoints
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
-        error: 'Route not found'
+        error: `Route not found: ${req.originalUrl}`,
+        availableEndpoints: [
+            '/api/auth',
+            '/api/products',
+            '/api/categories',
+            '/api/brands',
+            '/api/sales',
+            '/api/users',
+            '/api/dashboard',
+            '/api/shipments',
+            '/api/chat'
+        ]
     });
 });
 
@@ -113,7 +153,16 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
     console.log(`Allowed CORS origins: ${allowedOrigins.join(', ')}`);
-    console.log(`Shipment routes mounted at /api/shipments`);
+    console.log(`All routes mounted:`);
+    console.log(`  - /api/auth`);
+    console.log(`  - /api/products`);
+    console.log(`  - /api/categories`);
+    console.log(`  - /api/brands`);
+    console.log(`  - /api/sales`);
+    console.log(`  - /api/users`);
+    console.log(`  - /api/dashboard`);
+    console.log(`  - /api/shipments`);
+    console.log(`  - /api/chat ✅`); // Added checkmark to confirm
 });
 
 // Handle unhandled promise rejections
