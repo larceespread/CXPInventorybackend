@@ -46,6 +46,7 @@ const allowedOrigins = [
     'http://localhost:8080',
     'https://cxpinventorybackend.onrender.com',
     'https://cxpinventorysystem.vercel.app',
+    'https://cxpinventoryfrontendreal.vercel.app/',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
