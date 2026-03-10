@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
@@ -23,6 +24,7 @@ const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const shipmentRoutes = require('./routes/shipmentRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const approvalRoutes = require('./routes/approvalRoutes'); // ADD THIS LINE
 
 const app = express();
 
@@ -132,6 +134,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/shipments', shipmentRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/approvals', approvalRoutes); // ADD THIS LINE
 
 // Error handler middleware
 app.use(errorHandler);
@@ -156,7 +159,8 @@ app.get('/health', (req, res) => {
             users: '/api/users',
             dashboard: '/api/dashboard',
             shipments: '/api/shipments',
-            chat: '/api/chat'
+            chat: '/api/chat',
+            approvals: '/api/approvals' // ADD THIS LINE
         }
     });
 });
@@ -168,7 +172,8 @@ app.get('/', (req, res) => {
         message: 'CXP Inventory API',
         version: '1.0.0',
         documentation: '/health',
-        chat: '/api/chat - POST messages to chat'
+        chat: '/api/chat - POST messages to chat',
+        approvals: '/api/approvals - Approval requests management' // ADD THIS LINE
     });
 });
 
@@ -196,7 +201,8 @@ app.use('*', (req, res) => {
             '/api/users',
             '/api/dashboard',
             '/api/shipments',
-            '/api/chat'
+            '/api/chat',
+            '/api/approvals' // ADD THIS LINE
         ]
     });
 });
@@ -217,6 +223,7 @@ const server = app.listen(PORT, '0.0.0.0', () => { // Listen on all network inte
     console.log(`  - /api/dashboard`);
     console.log(`  - /api/shipments`);
     console.log(`  - /api/chat ✅`);
+    console.log(`  - /api/approvals ✅`); // ADD THIS LINE
 });
 
 // Handle unhandled promise rejections
